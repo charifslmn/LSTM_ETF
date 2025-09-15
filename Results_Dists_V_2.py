@@ -27,58 +27,36 @@ def add_threshold_metrics(data: List[Dict] ,threshold: float) -> None:
         actuals_per_fold = res["all_actuals"]
         actuals_per_fold_flat = [i for fold in res["all_actuals"] for i in fold]
 
-        HOD_per_fold = res["HOD_values"]  ; UCO_per_fold = res["UCO_values"] ; HUC_per_fold = res["HUC_values"] ; 
-        CRUD_per_fold = res["CRUD_values"] ; USO_per_fold = res["USO_values"] 
-
-        HOD_actuals_per_fold_flat = [i for fold in res["HOD_values"] for i in fold]
-        UCO_actuals_per_fold_flat = [i for fold in res["UCO_values"] for i in fold]
-        HUC_actuals_per_fold_flat = [i for fold in res["HUC_values"] for i in fold]
-        CRUD_actuals_per_fold_flat = [i for fold in res["CRUD_values"] for i in fold]
-        USO_actuals_per_fold_flat = [i for fold in res["USO_values"] for i in fold]
 
         pred_threshold_sigmoid01_up = threshold
         all_actuals_threshold_per_fold = []  ; all_preds_threshold_per_fold = []
-        HOD_actuals_threshold_per_fold = [] ; UCO_actuals_threshold_per_fold = []
-        HUC_actuals_threshold_per_fold = [] ; CRUD_actuals_threshold_per_fold = [] ; USO_actuals_threshold_per_fold = []
 
-        for p_fold, a_fold, HOD_a_fold, UCO_a_fold, HUC_a_fold, CRUD_a_fold, USO_a_fold in zip(all_preds, actuals_per_fold, HOD_per_fold, UCO_per_fold, HUC_per_fold, CRUD_per_fold, USO_per_fold):
-            new_p_fold = [] ; new_a_fold = [] ; new_HOD_a_fold = [] 
-            new_UCO_a_fold = [] ; new_HUC_a_fold = [] ; new_CRUD_a_fold = [] ; new_USO_a_fold = []
 
-            for p, a, HOD_a, UCO_a, HUC_a, CRUD_a, USO_a in zip(p_fold, a_fold, HOD_a_fold, UCO_a_fold, HUC_a_fold, CRUD_a_fold, USO_a_fold):
+        for p_fold, a_fold in zip(all_preds, actuals_per_fold):
+            new_p_fold = [] ; new_a_fold = [] 
+
+            for p, a in zip(p_fold, a_fold):
                 if p > 0.5 and p > pred_threshold_sigmoid01_up:
                     new_p_fold.append(p) ; new_a_fold.append(a)
-                    new_HOD_a_fold.append(HOD_a) ; new_UCO_a_fold.append(UCO_a)
-                    new_HUC_a_fold.append(HUC_a) ; new_CRUD_a_fold.append(CRUD_a) ; new_USO_a_fold.append(USO_a)
+
 
                 elif p > 0.5 and p <= pred_threshold_sigmoid01_up:
                     new_p_fold.append('below_threshold') ; new_a_fold.append('below_threshold')
-                    new_HOD_a_fold.append('below_threshold') ; new_UCO_a_fold.append('below_threshold')
-                    new_HUC_a_fold.append('below_threshold') ; new_CRUD_a_fold.append('below_threshold') ; new_USO_a_fold.append('below_threshold')
+
                 else:
                     new_p_fold.append(p) ; new_a_fold.append(a)
-                    new_HOD_a_fold.append(HOD_a) ;new_UCO_a_fold.append(UCO_a)
-                    new_HUC_a_fold.append(HUC_a) ; new_CRUD_a_fold.append(CRUD_a) ; new_USO_a_fold.append(USO_a)
+
 
             all_preds_threshold_per_fold.append(new_p_fold) ; all_actuals_threshold_per_fold.append(new_a_fold)
-            HOD_actuals_threshold_per_fold.append(new_HOD_a_fold) ; UCO_actuals_threshold_per_fold.append(new_UCO_a_fold)
-            HUC_actuals_threshold_per_fold.append(new_HUC_a_fold) ; CRUD_actuals_threshold_per_fold.append(new_CRUD_a_fold) ; USO_actuals_threshold_per_fold.append(new_USO_a_fold)
+
 
         all_actuals_threshold_per_fold_flattened = [j for parts in all_actuals_threshold_per_fold for j in parts] 
         all_preds_threshold_per_fold_flattened = [j for parts in all_preds_threshold_per_fold for j in parts]
-        HOD_actuals_threshold_per_fold_flattened = [j for parts in HOD_actuals_threshold_per_fold for j in parts]
-        UCO_actuals_threshold_per_fold_flattened = [j for parts in UCO_actuals_threshold_per_fold for j in parts]
-        HUC_actuals_threshold_per_fold_flattened = [j for parts in HUC_actuals_threshold_per_fold for j in parts]
-        CRUD_actuals_threshold_per_fold_flattened = [j for parts in CRUD_actuals_threshold_per_fold for j in parts]
-        USO_actuals_threshold_per_fold_flattened = [j for parts in USO_actuals_threshold_per_fold for j in parts]
+
 
         res["all_preds_threshold"] = all_preds_threshold_per_fold
         res["all_actuals_threshold"] = all_actuals_threshold_per_fold
-        res["HOD_actuals_threshold"] = HOD_actuals_threshold_per_fold
-        res["UCO_actuals_threshold"] = UCO_actuals_threshold_per_fold
-        res["HUC_actuals_threshold"] = HUC_actuals_threshold_per_fold
-        res["CRUD_actuals_threshold"] = CRUD_actuals_threshold_per_fold
-        res["USO_actuals_threshold"] = USO_actuals_threshold_per_fold
+
 
         threshold_metrics = evaluate_binary_0_1_selective_ensemble(
             all_preds_threshold_per_fold_flattened, 
@@ -91,6 +69,7 @@ def add_threshold_metrics(data: List[Dict] ,threshold: float) -> None:
             threshold_metrics_renamed[f"{key}_thresh"] = value
         
         res["overall_metrics_thresh"] = threshold_metrics_renamed
+
 
 def flatten_results(result_list: List[Dict]) -> pd.DataFrame:
     """Flatten one list of results into a DataFrame without modifying the original."""
@@ -118,76 +97,6 @@ def add_up_prediction_counts(dfs: List[pd.DataFrame]) -> None:
 
 
 
-# def add_false_correct_up_stats(dfs: List[pd.DataFrame]) -> None:
-#     """Add false and correct up prediction statistics"""
-#     for df in dfs:
-#         false_up_preds_col_list_actual = []
-#         false_up_preds_col_probabs_list_actual = []
-#         false_up_preds_col_list_actual_thresh = []
-#         false_up_preds_col_probabs_list_actual_thresh = []
-#         correct_up_preds_col_list_actual = []
-#         correct_up_preds_col_probabs_list = []
-#         correct_up_preds_col_list_actual_thresh = []
-#         correct_up_preds_col_probabs_list_thresh = []
-
-#         for row_raw_actuals, row_01_actuals, row_preds, row_preds_thresh in zip(
-#             df["raw_actuals"], df["all_actuals"], df["all_preds"], df["all_preds_threshold"]
-#         ):
-#             false_up_preds_row_actual = []
-#             false_up_preds_row_probabs = []
-#             false_up_preds_row_actual_thresh = []
-#             false_up_preds_row_probabs_thresh = []
-#             correct_up_preds_row_actual = []
-#             correct_up_preds_row_probabs = []
-#             correct_up_preds_row_actual_thresh = []
-#             correct_up_preds_row_probabs_thresh = []
-
-#             row_raw_actuals_flattened = [p for fold in row_raw_actuals for p in fold]
-#             row_01_actuals_flattened = [p for fold in row_01_actuals for p in fold]
-#             row_preds_flattened = [p for fold in row_preds for p in fold]
-#             row_preds_thresh_flattened = [p for fold in row_preds_thresh for p in fold]
-
-#             # Normal version
-#             for entry_raw_actual, entry_01_actual, entry_pred in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_flattened):
-#                 if entry_pred > 0.5 and entry_01_actual < 0.5:
-#                     false_up_preds_row_actual.append(round(entry_raw_actual, 3)) 
-#                     false_up_preds_row_probabs.append(round(entry_pred,3))
-#             for entry_raw_actual, entry_01_actual, entry_pred in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_flattened):
-#                 if entry_pred > 0.5 and entry_01_actual > 0.5:
-#                     correct_up_preds_row_actual.append(round(entry_raw_actual, 3)) 
-#                     correct_up_preds_row_probabs.append(round(entry_pred,3))
-
-#             # Threshold version
-#             for entry_raw_actual, entry_01_actual, entry_pred in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_thresh_flattened):
-#                 if isinstance(entry_pred, (int, float)) and entry_pred > 0.5 and entry_01_actual < 0.5:
-#                     false_up_preds_row_actual_thresh.append(round(entry_raw_actual, 3)) 
-#                     false_up_preds_row_probabs_thresh.append(round(entry_pred,3))
-#             for entry_raw_actual, entry_01_actual, entry_pred in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_thresh_flattened):
-#                 if isinstance(entry_pred, (int, float)) and entry_pred > 0.5 and entry_01_actual > 0.5:
-#                     correct_up_preds_row_actual_thresh.append(round(entry_raw_actual, 3)) 
-#                     correct_up_preds_row_probabs_thresh.append(round(entry_pred,3))
-
-#             false_up_preds_col_list_actual.append(false_up_preds_row_actual)
-#             false_up_preds_col_probabs_list_actual.append(false_up_preds_row_probabs)
-#             false_up_preds_col_list_actual_thresh.append(false_up_preds_row_actual_thresh)
-#             false_up_preds_col_probabs_list_actual_thresh.append(false_up_preds_row_probabs_thresh)
-#             correct_up_preds_col_list_actual.append(correct_up_preds_row_actual)
-#             correct_up_preds_col_probabs_list.append(correct_up_preds_row_probabs)
-#             correct_up_preds_col_list_actual_thresh.append(correct_up_preds_row_actual_thresh)
-#             correct_up_preds_col_probabs_list_thresh.append(correct_up_preds_row_probabs_thresh)
-
-#         df["actuals_false_up"] = false_up_preds_col_list_actual
-#         df["false_up_preds"] = false_up_preds_col_probabs_list_actual
-#         df["actuals_false_up_thresh"] = false_up_preds_col_list_actual_thresh
-#         df["false_up_preds_thresh"] = false_up_preds_col_probabs_list_actual_thresh
-#         df["actuals_correct_up"] = correct_up_preds_col_list_actual
-#         df["correct_up_preds"] = correct_up_preds_col_probabs_list
-#         df["actuals_correct_up_thresh"] = correct_up_preds_col_list_actual_thresh
-#         df["correct_up_preds_thresh"] = correct_up_preds_col_probabs_list_thresh
-
-
-
-################################################################## TESTING
 
 def add_false_correct_up_stats(dfs: List[pd.DataFrame]) -> None:
     """Add false and correct up prediction statistics"""
@@ -201,40 +110,9 @@ def add_false_correct_up_stats(dfs: List[pd.DataFrame]) -> None:
         correct_up_preds_col_list_actual_thresh = []
         correct_up_preds_col_probabs_list_thresh = []
 
-        #### ETF CODE NEW
-        HOD_false_up_preds_col_list_actual = []
-        UCO_false_up_preds_col_list_actual = []
-        HUC_false_up_preds_col_list_actual = []
-        CRUD_false_up_preds_col_list_actual = []
-        USO_false_up_preds_col_list_actual = []
 
-        HOD_correct_up_preds_col_list_actual = []
-        UCO_correct_up_preds_col_list_actual = []
-        HUC_correct_up_preds_col_list_actual = []
-        CRUD_correct_up_preds_col_list_actual = []
-        USO_correct_up_preds_col_list_actual = []
-
-
-        #### ETF CODE NEW
-
-        #### ETF CODE NEW THRESH
-        HOD_false_up_preds_col_list_actual_thresh = []
-        UCO_false_up_preds_col_list_actual_thresh = []
-        HUC_false_up_preds_col_list_actual_thresh = []
-        CRUD_false_up_preds_col_list_actual_thresh = []
-        USO_false_up_preds_col_list_actual_thresh = []
-
-        HOD_correct_up_preds_col_list_actual_thresh = []
-        UCO_correct_up_preds_col_list_actual_thresh = []
-        HUC_correct_up_preds_col_list_actual_thresh = []
-        CRUD_correct_up_preds_col_list_actual_thresh = []
-        USO_correct_up_preds_col_list_actual_thresh = []
-
-        #### ETF CODE NEW THRESH
-
-
-        for row_raw_actuals, row_01_actuals, row_preds, row_preds_thresh , row_HUC_vals , row_HOD_vals , row_UCO_vals , row_CRUD_vals , row_USO_vals in zip(
-            df["raw_actuals"], df["all_actuals"], df["all_preds"], df["all_preds_threshold"], df["HUC_values"], df["HOD_values"], df["UCO_values"], df["CRUD_values"], df["USO_values"]
+        for row_raw_actuals, row_01_actuals, row_preds, row_preds_thresh in zip(
+            df["raw_actuals"], df["all_actuals"], df["all_preds"], df["all_preds_threshold"]
         ):
 
 
@@ -246,111 +124,40 @@ def add_false_correct_up_stats(dfs: List[pd.DataFrame]) -> None:
             correct_up_preds_row_probabs = []
             correct_up_preds_row_actual_thresh = []
             correct_up_preds_row_probabs_thresh = []
-            #### ETF CODE NEW
-            HOD_false_up_preds_col_row_actual = []
-            UCO_false_up_preds_col_row_actual = []
-            HUC_false_up_preds_col_row_actual = []
-            CRUD_false_up_preds_col_row_actual = []
-            USO_false_up_preds_col_row_actual = []
 
-            HOD_correct_up_preds_col_row_actual = []
-            UCO_correct_up_preds_col_row_actual = []
-            HUC_correct_up_preds_col_row_actual = []
-            CRUD_correct_up_preds_col_row_actual = []
-            USO_correct_up_preds_col_row_actual = []
-            #### ETF CODE NEW
-            #### ETF CODE NEW THRESH
-            HOD_false_up_preds_col_row_actual = []
-            UCO_false_up_preds_col_row_actual = []
-            HUC_false_up_preds_col_row_actual = []
-            CRUD_false_up_preds_col_row_actual = []
-            USO_false_up_preds_col_row_actual = []
-
-            HOD_correct_up_preds_col_row_actual = []
-            UCO_correct_up_preds_col_row_actual = []
-            HUC_correct_up_preds_col_row_actual = []
-            CRUD_correct_up_preds_col_row_actual = []
-            USO_correct_up_preds_col_row_actual = []
-            #### ETF CODE NEW
-            #### ETF CODE NEW THRESH
-            HOD_false_up_preds_col_row_actual_thresh = []
-            UCO_false_up_preds_col_row_actual_thresh = []
-            HUC_false_up_preds_col_row_actual_thresh = []
-            CRUD_false_up_preds_col_row_actual_thresh = []
-            USO_false_up_preds_col_row_actual_thresh = []
-
-            HOD_correct_up_preds_col_row_actual_thresh = []
-            UCO_correct_up_preds_col_row_actual_thresh = []
-            HUC_correct_up_preds_col_row_actual_thresh = []
-            CRUD_correct_up_preds_col_row_actual_thresh = []
-            USO_correct_up_preds_col_row_actual_thresh = []
-            #### ETF CODE NEW THRESH
 
             row_raw_actuals_flattened = [p for fold in row_raw_actuals for p in fold]
             row_01_actuals_flattened = [p for fold in row_01_actuals for p in fold]
             row_preds_flattened = [p for fold in row_preds for p in fold]
             row_preds_thresh_flattened = [p for fold in row_preds_thresh for p in fold]
-            #### ETF CODE NEW
-            HOD_actuals_raw_flattened = [p for fold in row_HOD_vals for p in fold]
-            UCO_actuals_raw_flattened = [p for fold in row_UCO_vals for p in fold]
-            HUC_actuals_raw_flattened = [p for fold in row_HUC_vals for p in fold]
-            CRUD_actuals_raw_flattened = [p for fold in row_CRUD_vals for p in fold]
-            USO_actuals_raw_flattened = [p for fold in row_USO_vals for p in fold]
-            #### ETF CODE NEW
 
-            #### ETF CODE NEW THRESH
-            HOD_actuals_raw_flattened_thresh = [p for fold in row_HOD_vals for p in fold]
-            UCO_actuals_raw_flattened_thresh = [p for fold in row_UCO_vals for p in fold]
-            HUC_actuals_raw_flattened_thresh = [p for fold in row_HUC_vals for p in fold]
-            CRUD_actuals_raw_flattened_thresh = [p for fold in row_CRUD_vals for p in fold]
-            USO_actuals_raw_flattened_thresh = [p for fold in row_USO_vals for p in fold]
-            #### ETF CODE NEW THRESH
 
             # Normal version
-            for entry_raw_actual, entry_01_actual, entry_pred , entry_HOD_actual, entry_UCO_actual, entry_HUC_actual, entry_CRUD_actual, entry_USO_actual in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_flattened \
-                                                                      , HOD_actuals_raw_flattened, UCO_actuals_raw_flattened, HUC_actuals_raw_flattened, CRUD_actuals_raw_flattened, USO_actuals_raw_flattened):
-                
+            for entry_raw_actual, entry_01_actual, entry_pred in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_flattened):
                 if entry_pred > 0.5 and entry_01_actual < 0.5:
                     false_up_preds_row_actual.append(round(entry_raw_actual, 4)) 
                     false_up_preds_row_probabs.append(round(entry_pred,4))
-                    HOD_false_up_preds_col_row_actual.append(round(entry_HOD_actual, 4))
-                    UCO_false_up_preds_col_row_actual.append(round(entry_UCO_actual, 4))
-                    HUC_false_up_preds_col_row_actual.append(round(entry_HUC_actual, 4))
 
-            for entry_raw_actual, entry_01_actual, entry_pred , entry_HOD_actual, entry_UCO_actual, entry_HUC_actual in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_flattened \
-                                                                     , HOD_actuals_raw_flattened, UCO_actuals_raw_flattened, HUC_actuals_raw_flattened):
+
+            for entry_raw_actual, entry_01_actual, entry_pred in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_flattened):
                 if entry_pred > 0.5 and entry_01_actual > 0.5:
                     correct_up_preds_row_actual.append(round(entry_raw_actual, 4)) 
                     correct_up_preds_row_probabs.append(round(entry_pred,4))
-                    HOD_correct_up_preds_col_row_actual.append(round(entry_HOD_actual, 4))
-                    UCO_correct_up_preds_col_row_actual.append(round(entry_UCO_actual, 4))
-                    HUC_correct_up_preds_col_row_actual.append(round(entry_HUC_actual, 4))
-                    CRUD_correct_up_preds_col_row_actual.append(round(entry_CRUD_actual, 4))
-                    USO_correct_up_preds_col_row_actual.append(round(entry_USO_actual, 4))
+
 
             # Threshold version
-            for entry_raw_actual, entry_01_actual, entry_pred , entry_HOD_actual, entry_UCO_actual, entry_HUC_actual, entry_CRUD_actual, entry_USO_actual in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_thresh_flattened \
-                                                                     , HOD_actuals_raw_flattened, UCO_actuals_raw_flattened, HUC_actuals_raw_flattened, CRUD_actuals_raw_flattened, USO_actuals_raw_flattened):
-                if isinstance(entry_pred, (int, float)) and entry_pred > 0.5 and entry_01_actual < 0.5:
+            for entry_raw_actual, entry_01_actual, entry_pred in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_thresh_flattened):
+                if ( not isinstance(entry_pred, str)) and entry_pred > 0.5 and entry_01_actual < 0.5:
                     false_up_preds_row_actual_thresh.append(round(entry_raw_actual, 4))
                     false_up_preds_row_probabs_thresh.append(round(entry_pred,4))
-                    HOD_false_up_preds_col_row_actual_thresh.append(round(entry_HOD_actual, 4))
-                    UCO_false_up_preds_col_row_actual_thresh.append(round(entry_UCO_actual, 4))
-                    HUC_false_up_preds_col_row_actual_thresh.append(round(entry_HUC_actual, 4))
-                    CRUD_false_up_preds_col_row_actual_thresh.append(round(entry_CRUD_actual, 4))
-                    USO_false_up_preds_col_row_actual_thresh.append(round(entry_USO_actual, 4))
 
-            for entry_raw_actual, entry_01_actual, entry_pred , entry_HOD_actual, entry_UCO_actual, entry_HUC_actual, entry_CRUD_actual, entry_USO_actual in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_thresh_flattened \
-                                                                     , HOD_actuals_raw_flattened, UCO_actuals_raw_flattened, HUC_actuals_raw_flattened, CRUD_actuals_raw_flattened, USO_actuals_raw_flattened):
+
+            for entry_raw_actual, entry_01_actual, entry_pred in zip(row_raw_actuals_flattened, row_01_actuals_flattened, row_preds_thresh_flattened):
                 
-                if isinstance(entry_pred, (int, float)) and entry_pred > 0.5 and entry_01_actual > 0.5:
+                if ( not isinstance(entry_pred, str) ) and entry_pred > 0.5 and entry_01_actual > 0.5:
                     correct_up_preds_row_actual_thresh.append(round(entry_raw_actual, 4))
                     correct_up_preds_row_probabs_thresh.append(round(entry_pred, 4))
-                    HOD_correct_up_preds_col_row_actual_thresh.append(round(entry_HOD_actual, 4))
-                    UCO_correct_up_preds_col_row_actual_thresh.append(round(entry_UCO_actual, 4))
-                    HUC_correct_up_preds_col_row_actual_thresh.append(round(entry_HUC_actual, 4))
-                    CRUD_correct_up_preds_col_row_actual_thresh.append(round(entry_CRUD_actual, 4))
-                    USO_correct_up_preds_col_row_actual_thresh.append(round(entry_USO_actual, 4))
+
 
             false_up_preds_col_list_actual.append(false_up_preds_row_actual)
             false_up_preds_col_probabs_list_actual.append(false_up_preds_row_probabs)
@@ -362,36 +169,7 @@ def add_false_correct_up_stats(dfs: List[pd.DataFrame]) -> None:
             correct_up_preds_col_list_actual_thresh.append(correct_up_preds_row_actual_thresh)
             correct_up_preds_col_probabs_list_thresh.append(correct_up_preds_row_probabs_thresh)
 
-            #####ETF 
-            HOD_false_up_preds_col_list_actual.append(HOD_false_up_preds_col_row_actual)
-            UCO_false_up_preds_col_list_actual.append(UCO_false_up_preds_col_row_actual)
-            HUC_false_up_preds_col_list_actual.append(HUC_false_up_preds_col_row_actual)
-            CRUD_false_up_preds_col_list_actual.append(CRUD_false_up_preds_col_row_actual)
-            USO_false_up_preds_col_list_actual.append(USO_false_up_preds_col_row_actual)
 
-            HOD_correct_up_preds_col_list_actual.append(HOD_correct_up_preds_col_row_actual)
-            UCO_correct_up_preds_col_list_actual.append(UCO_correct_up_preds_col_row_actual)
-            HUC_correct_up_preds_col_list_actual.append(HUC_correct_up_preds_col_row_actual)
-            CRUD_correct_up_preds_col_list_actual.append(CRUD_correct_up_preds_col_row_actual)
-            USO_correct_up_preds_col_list_actual.append(USO_correct_up_preds_col_row_actual)
-
-            #####ETF 
-
-
-            #####ETF THRESH
-            HOD_false_up_preds_col_list_actual_thresh.append(HOD_false_up_preds_col_row_actual_thresh)
-            UCO_false_up_preds_col_list_actual_thresh.append(UCO_false_up_preds_col_row_actual_thresh)
-            HUC_false_up_preds_col_list_actual_thresh.append(HUC_false_up_preds_col_row_actual_thresh)
-            CRUD_false_up_preds_col_list_actual_thresh.append(CRUD_false_up_preds_col_row_actual_thresh)
-            USO_false_up_preds_col_list_actual_thresh.append(USO_false_up_preds_col_row_actual_thresh)
-
-            HOD_correct_up_preds_col_list_actual_thresh.append(HOD_correct_up_preds_col_row_actual_thresh)
-            UCO_correct_up_preds_col_list_actual_thresh.append(UCO_correct_up_preds_col_row_actual_thresh)
-            HUC_correct_up_preds_col_list_actual_thresh.append(HUC_correct_up_preds_col_row_actual_thresh)
-            CRUD_correct_up_preds_col_list_actual_thresh.append(CRUD_correct_up_preds_col_row_actual_thresh)
-            USO_correct_up_preds_col_list_actual_thresh.append(USO_correct_up_preds_col_row_actual_thresh)
-
-            #####ETF 
 
         df["actuals_false_up"] = false_up_preds_col_list_actual
         df["false_up_preds"] = false_up_preds_col_probabs_list_actual
@@ -401,35 +179,6 @@ def add_false_correct_up_stats(dfs: List[pd.DataFrame]) -> None:
         df["correct_up_preds"] = correct_up_preds_col_probabs_list
         df["actuals_correct_up_thresh"] = correct_up_preds_col_list_actual_thresh
         df["correct_up_preds_thresh"] = correct_up_preds_col_probabs_list_thresh
-
-        ##### ETF
-        df["HOD_actuals_false_up"] = HOD_false_up_preds_col_list_actual
-        df["UCO_actuals_false_up"] = UCO_false_up_preds_col_list_actual
-        df["HUC_actuals_false_up"] = HUC_false_up_preds_col_list_actual
-        df["CRUD_actuals_false_up"] = CRUD_false_up_preds_col_list_actual
-        df["USO_actuals_false_up"] = USO_false_up_preds_col_list_actual
-
-        df["HOD_actuals_correct_up"] = HOD_correct_up_preds_col_list_actual
-        df["UCO_actuals_correct_up"] = UCO_correct_up_preds_col_list_actual
-        df["HUC_actuals_correct_up"] = HUC_correct_up_preds_col_list_actual
-        df["CRUD_actuals_correct_up"] = CRUD_correct_up_preds_col_list_actual
-        df["USO_actuals_correct_up"] = USO_correct_up_preds_col_list_actual
-        ##### ETF
-
-
-        ##### ETF THRESH
-        df["HOD_actuals_false_up_thresh"] = HOD_false_up_preds_col_list_actual_thresh
-        df["UCO_actuals_false_up_thresh"] = UCO_false_up_preds_col_list_actual_thresh
-        df["HUC_actuals_false_up_thresh"] = HUC_false_up_preds_col_list_actual_thresh
-        df["CRUD_actuals_false_up_thresh"] = CRUD_false_up_preds_col_list_actual_thresh
-        df["USO_actuals_false_up_thresh"] = USO_false_up_preds_col_list_actual_thresh
-
-        df["HOD_actuals_correct_up_thresh"] = HOD_correct_up_preds_col_list_actual_thresh
-        df["UCO_actuals_correct_up_thresh"] = UCO_correct_up_preds_col_list_actual_thresh
-        df["HUC_actuals_correct_up_thresh"] = HUC_correct_up_preds_col_list_actual_thresh
-        df["CRUD_actuals_correct_up_thresh"] = CRUD_correct_up_preds_col_list_actual_thresh
-        df["USO_actuals_correct_up_thresh"] = USO_correct_up_preds_col_list_actual_thresh
-        ##### ETF THRESH
 
 
 ################################################################## TESTING
@@ -450,55 +199,6 @@ def flatten_metrics_columns(dfs: List[pd.DataFrame]) -> None:
             params_df.columns = [f"OA_thresh_{col}" for col in params_df.columns]
             df[params_df.columns] = params_df
 
-# def process_parameters_and_merge(dfs: List[pd.DataFrame]) -> pd.DataFrame:
-#     """Process parameters and create master DataFrame"""
-
-
-#     concat_df_val = pd.concat([dfs[0], dfs[1]], ignore_index=True)
-#     concat_df_test = pd.concat([dfs[2], dfs[3]], ignore_index=True)
-    
-#     temp_dfs = [concat_df_val, concat_df_test]
-    
-#     for df in temp_dfs:
-#         params_chosen = []
-#         for param_dict in df["parameters"]:
-#             param_dict_fix = {}
-#             for param_key in param_dict.keys():
-#                 if param_key not in ['num_folds', 'end_value_train_set_fraction', 'val_set_fraction']:
-#                     param_dict_fix[str(param_key)] = param_dict[param_key]
-#             params_chosen.append(str(param_dict_fix))
-#         df["params_fix"] = params_chosen
-
-#     dict_fix_params = {}
-#     for idx, p in enumerate(concat_df_test["params_fix"]):
-#         p_str = str(p).replace(' ', '').replace("'", '').replace('  ', '')
-#         dict_fix_params[p_str] = idx
-
-#     for df in temp_dfs:
-#         param_values = []
-#         for p in df["params_fix"]:
-#             p_str = str(p).replace(' ', '').replace("'", '')
-#             param_values.append(dict_fix_params.get(p_str, -1))
-#         df["param_int_value"] = param_values
-
-#     concat_df_val.rename(columns=lambda x: f"{x}_mac_val" if x != "params_fix" else x, inplace=True)
-#     concat_df_test.rename(columns=lambda x: f"{x}_mac_test" if x != "params_fix" else x, inplace=True)
-
-#     master_df = concat_df_val.merge(concat_df_test, on="params_fix", how="outer")
-    
-#     master_df.columns = (
-#         master_df.columns
-#         .str.replace('precision', 'prec')
-#         .str.replace('recall', 'rec')
-#         .str.replace('down', '0')
-#         .str.replace('up', '1')
-#         .str.replace('accuracy', 'acc')
-#         .str.replace('test', 'T')
-#         .str.replace('val', 'V')
-#     )
-    
-#     return master_df
-
 
 
 def process_parameters_and_merge(dfs: List[pd.DataFrame]) -> pd.DataFrame:
@@ -518,7 +218,7 @@ def process_parameters_and_merge(dfs: List[pd.DataFrame]) -> pd.DataFrame:
         for param_dict in df["parameters"]:
             param_dict_fix = {}
             for param_key in param_dict.keys():
-                if param_key not in ['num_folds', 'end_value_train_set_fraction', 'val_set_fraction']:
+                if param_key not in ['val_start_month', 'val_end_month']:
                     param_dict_fix[str(param_key)] = param_dict[param_key]
             params_chosen.append(str(param_dict_fix))
         df["params_fix"] = params_chosen
@@ -797,8 +497,12 @@ def process_ensemble_groups(ensemble_config: list, master_df: pd.DataFrame, data
             
             for i, model_id in enumerate(pair[:num_models]):
                 # Determine which prediction column to use based on threshold flag
-                preds_column = "all_preds_threshold_mac_T" if use_threshold_data else "all_preds_mac_T"
-                
+                if data_type == "T":
+                    preds_column = "all_preds_threshold_mac_T" if use_threshold_data else "all_preds_mac_T"
+
+                if data_type == "V": ##### ERROR this was missing before sept 14 !!!! so it was always jsut T set
+                    preds_column = "all_preds_threshold_mac_V" if use_threshold_data else "all_preds_mac_V"
+
                 # Get the data
                 model_preds = master_df.loc[master_df[f"param_int_Vue_mac_{data_type}"] == model_id, preds_column].iloc[0]
                 model_actuals = master_df.loc[master_df[f"param_int_Vue_mac_{data_type}"] == model_id, f"all_actuals_mac_{data_type}"].iloc[0]
@@ -812,11 +516,20 @@ def process_ensemble_groups(ensemble_config: list, master_df: pd.DataFrame, data
                 
                 # Store individual model data for the results
                 individual_model_data[f"model_{model_id}_preds"] = model_preds
+
+
+                ##### ERROR this was missing before sept 14 !!!! so it was always jsut T ser 
+            if data_type == "V":
+                num_cv_sets = 8 
+            if data_type == "T":
+                num_cv_sets = 4   
+                ##### ERROR this was missing before sept 14 !!!! so it was always jsut T ser 
+
             
             result = selective_ensemble_all_agree_thresh(
                 existing_data=existing_data,
                 combo_list=None,
-                num_cv_sets=4,
+                num_cv_sets=num_cv_sets,
                 total_offset=0,
                 INDEX=len(ensemble_results[group_name]),
                 combo_numbers=pair,
@@ -921,66 +634,13 @@ def process_func_PLUS_return_analytics(master_df: pd.DataFrame,
     # total_correct_ups = 0
     # sum_actuals_ups = 0
     sum_actuals_ups_list_ALL = []
-    HOD_sum_actuals_ups_list_ALL = []
-    UCO_sum_actuals_ups_list_ALL = []
-    HUC_sum_actuals_ups_list_ALL = []
-    CRUD_sum_actuals_ups_list_ALL = []
-    USO_sum_actuals_ups_list_ALL = []
+
 
     group_results = {}
     detailed_results = {}
 
 
 
-    import pickle
-    with open('ETF_dfs_WTI_preds_analysis/df_HUC_T_folds_values', 'rb') as f:
-        df_HUC_T_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_UCO_T_folds_values', 'rb') as f:
-        df_UCO_T_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_HOD_T_folds_values', 'rb') as f:
-        df_HOD_T_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_CRUD_T_folds_values', 'rb') as f:
-        df_CRUD_T_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_USO_T_folds_values', 'rb') as f:
-        df_USO_T_folds_values = pickle.load(f)
-
-
-
-    with open('ETF_dfs_WTI_preds_analysis/df_HUC_V_folds_values', 'rb') as f:
-        df_HUC_V_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_UCO_V_folds_values', 'rb') as f:
-        df_UCO_V_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_HOD_V_folds_values', 'rb') as f:
-        df_HOD_V_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_CRUD_V_folds_values', 'rb') as f:
-        df_CRUD_V_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_USO_V_folds_values', 'rb') as f:
-        df_USO_V_folds_values = pickle.load(f)
-
-
-
-
-    if data_type_ensemble == "T":
-        flatten_HOD_values = [p for part in df_HOD_T_folds_values for p in part]
-        flatten_HUC_values = [p for part in df_HUC_T_folds_values for p in part]
-        flatten_UCO_values = [p for part in df_UCO_T_folds_values for p in part]
-        flatten_CRUD_values = [p for part in df_CRUD_T_folds_values for p in part]
-        flatten_USO_values = [p for part in df_USO_T_folds_values for p in part]
-
-    if data_type_ensemble == "V":
-        flatten_HOD_values = [p for part in df_HOD_V_folds_values for p in part]
-        flatten_HUC_values = [p for part in df_HUC_V_folds_values for p in part]
-        flatten_UCO_values = [p for part in df_UCO_V_folds_values for p in part]
-        flatten_CRUD_values = [p for part in df_CRUD_V_folds_values for p in part]
-        flatten_USO_values = [p for part in df_USO_V_folds_values for p in part]
 
     # Process each group
     for ensemble_group_name, ensemble_group in ensemble_results.items():
@@ -1001,29 +661,17 @@ def process_func_PLUS_return_analytics(master_df: pd.DataFrame,
             # total_ups += p_ups
 
             up_vals_predicted_raw_val = []
-            HOD_up_vals_predicted_raw_val = []
-            UCO_up_vals_predicted_raw_val = []
-            HUC_up_vals_predicted_raw_val = []
-            CRUD_up_vals_predicted_raw_val = []
-            USO_up_vals_predicted_raw_val = []
+
             correct_ups = 0
 
-            for p, a, actual_binary, HOD_val, UCO_val, HUC_val, CRUD_val, USO_val in zip(flatten_preds, flatten_raw_actuals, flatten_actuals, flatten_HOD_values, flatten_UCO_values, flatten_HUC_values, flatten_CRUD_values, flatten_USO_values):
+            for p, a, actual_binary in zip(flatten_preds, flatten_raw_actuals, flatten_actuals):
                 if not isinstance(p, str) and p > 0.5:
                     up_vals_predicted_raw_val.append(a)
-                    HOD_up_vals_predicted_raw_val.append(HOD_val)
-                    UCO_up_vals_predicted_raw_val.append(UCO_val)
-                    HUC_up_vals_predicted_raw_val.append(HUC_val)
-                    CRUD_up_vals_predicted_raw_val.append(CRUD_val)
-                    USO_up_vals_predicted_raw_val.append(USO_val)
+
 
                     group_sum_actuals += a
                     sum_actuals_ups_list_ALL.append(a)
-                    HOD_sum_actuals_ups_list_ALL.append(HOD_val)
-                    UCO_sum_actuals_ups_list_ALL.append(UCO_val)
-                    HUC_sum_actuals_ups_list_ALL.append(HUC_val)
-                    CRUD_sum_actuals_ups_list_ALL.append(CRUD_val)
-                    USO_sum_actuals_ups_list_ALL.append(USO_val)
+
                     # sum_actuals_ups += a
                     # Check if up prediction was correct (actual_bin > 0.5)
                     if actual_binary > 0.5:
@@ -1036,8 +684,7 @@ def process_func_PLUS_return_analytics(master_df: pd.DataFrame,
             output_line = (
                 f"{ensemble_result['cv_sets']['overall_metrics']['precision_up']} - "
                 f"{ensemble_result['cv_sets']['overall_metrics']['recall_up']} "
-                f"{ensemble_result['combo_numbers']} - {p_ups} - Correct: {correct_ups} - {up_vals_predicted_raw_val} - HOD vals: {HOD_up_vals_predicted_raw_val} \
-                    - UCO vals: {UCO_up_vals_predicted_raw_val} - HUC vals: {HUC_up_vals_predicted_raw_val} - CRUD vals: {CRUD_up_vals_predicted_raw_val} - USO vals: {USO_up_vals_predicted_raw_val}"
+                f"{ensemble_result['combo_numbers']} - {p_ups} - Correct: {correct_ups} - {up_vals_predicted_raw_val} "
             )
             group_output.append(output_line)
             
@@ -1049,11 +696,7 @@ def process_func_PLUS_return_analytics(master_df: pd.DataFrame,
                 "up_predictions": p_ups,
                 "correct_ups": correct_ups,
                 "actual_returns": up_vals_predicted_raw_val,
-                "HOD_values_returns": HOD_up_vals_predicted_raw_val,
-                "UCO_values_returns": UCO_up_vals_predicted_raw_val,
-                "HUC_values_returns": HUC_up_vals_predicted_raw_val,
-                "CRUD_values_returns": CRUD_up_vals_predicted_raw_val,
-                "USO_values_returns": USO_up_vals_predicted_raw_val
+
             })
         
         group_results[ensemble_group_name] = group_output
@@ -1067,11 +710,11 @@ def process_func_PLUS_return_analytics(master_df: pd.DataFrame,
             f"Prec Up: {group_correct_ups/group_ups if group_ups > 0 else 0:.3f}"
         ]
         
-        ## set outlier values past < -0.5 to -0.06
-    if filter_outliers:
-        for i in range(len(sum_actuals_ups_list_ALL)):
-            if sum_actuals_ups_list_ALL[i] < -0.5:
-                sum_actuals_ups_list_ALL[i] = -0.1
+    #     ## set outlier values past < -0.5 to -0.06
+    # if filter_outliers:
+    #     for i in range(len(sum_actuals_ups_list_ALL)):
+    #         if sum_actuals_ups_list_ALL[i] < -0.5:
+    #             sum_actuals_ups_list_ALL[i] = -0.1
 
     print("before set:", sum_actuals_ups_list_ALL)
     print("after set:", set(sum_actuals_ups_list_ALL))
@@ -1079,22 +722,14 @@ def process_func_PLUS_return_analytics(master_df: pd.DataFrame,
     total_correct_ups = len(set([val for val in sum_actuals_ups_list_ALL if val > 0]))  
 
     sum_actuals_ups = sum(set(sum_actuals_ups_list_ALL))
-    HOD_sum_actuals_ups = sum(set(HOD_sum_actuals_ups_list_ALL))
-    UCO_sum_actuals_ups = sum(set(UCO_sum_actuals_ups_list_ALL))
-    HUC_sum_actuals_ups = sum(set(HUC_sum_actuals_ups_list_ALL))
-    CRUD_sum_actuals_ups = sum(set(CRUD_sum_actuals_ups_list_ALL))
-    USO_sum_actuals_ups = sum(set(USO_sum_actuals_ups_list_ALL))
+
 
     # Create overall summary
     summary = {
         "Total Up Predictions": total_ups,
         "Total Correct Up Predictions": total_correct_ups,
         "Sum of Actual Returns for Up Predictions": sum_actuals_ups,
-        "Sum of HOD Actual Returns for Up Predictions": HOD_sum_actuals_ups,
-        "Sum of UCO Actual Returns for Up Predictions": UCO_sum_actuals_ups,
-        "Sum of HUC Actual Returns for Up Predictions": HUC_sum_actuals_ups,
-        "Sum of CRUD Actual Returns for Up Predictions": CRUD_sum_actuals_ups,
-        "Sum of USO Actual Returns for Up Predictions": USO_sum_actuals_ups,
+
         "Prec Up": total_correct_ups/total_ups if total_ups > 0 else 0
     }
 
@@ -1107,11 +742,7 @@ def process_func_PLUS_return_analytics(master_df: pd.DataFrame,
             "total_ups": total_ups,
             "total_correct_ups": total_correct_ups,
             "sum_actuals_ups": sum_actuals_ups,
-            "HOD_sum_actuals_ups": HOD_sum_actuals_ups,
-            "UCO_sum_actuals_ups": UCO_sum_actuals_ups,
-            "HUC_sum_actuals_ups": HUC_sum_actuals_ups,
-            "CRUD_sum_actuals_ups": CRUD_sum_actuals_ups,
-            "USO_sum_actuals_ups": USO_sum_actuals_ups,
+
             "precision": total_correct_ups / total_ups if total_ups > 0 else 0
         },
         "config_info": {
@@ -1148,10 +779,7 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
                                     ## new params
                                     threshold : float,
                                     names_all: dict,
-                                    names_val: dict,
-                                    names_test: dict,
-                                    etf_data_T_dict: dict,
-                                    etf_data_V_dict: dict,
+
                                     #new arams 
                                     
                                     groups_config: list, 
@@ -1165,38 +793,39 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
                                     ) -> dict:
     
 
-    etf_data_T = etf_data_T_dict
-    etf_data_V = etf_data_V_dict
 
-    def add_etf_values(data , etf_data): 
-        for res in data:
-            for key in etf_data.keys():
-                res[f"{key}_values"] = etf_data[key]
-
-
-    for data in names_val.values():
-        add_etf_values(data, etf_data_V)
-
-    for data in names_test.values():
-        add_etf_values(data, etf_data_T)
 
     for data in names_all.values():
         add_threshold_metrics(data, threshold = threshold)
 
+    if len(names_all) == 4 :
+ 
+        df_mac_L_val = flatten_results(names_all["res_mac_L_val"])
+        df_mac_H_val = flatten_results(names_all["res_mac_H_val"])
+        df_mac_L_test = flatten_results(names_all["res_mac_L_test"])
+        df_mac_H_test = flatten_results(names_all["res_mac_H_test"])
 
-    # Create DataFrames
-    df_mac_L_val = flatten_results(names_all["res_mac_L_val"])
-    df_mac_H_val = flatten_results(names_all["res_mac_H_val"])
-    df_mac_L_test = flatten_results(names_all["res_mac_L_test"])
-    df_mac_H_test = flatten_results(names_all["res_mac_H_test"])
+                # Add H/L labels
+        df_mac_L_val['H_L'] = 'L'
+        df_mac_H_val['H_L'] = 'H'
+        df_mac_L_test['H_L'] = 'L'
+        df_mac_H_test['H_L'] = 'H'
 
-    # Add H/L labels
-    df_mac_L_val['H_L'] = 'L'
-    df_mac_H_val['H_L'] = 'H'
-    df_mac_L_test['H_L'] = 'L'
-    df_mac_H_test['H_L'] = 'H'
+        dfs = [df_mac_L_val, df_mac_H_val, df_mac_L_test, df_mac_H_test]
 
-    dfs = [df_mac_L_val, df_mac_H_val, df_mac_L_test, df_mac_H_test]
+
+    if len(names_all) == 2 : ### use the names below for the top combos version 
+
+        df_mac_H_val = flatten_results(names_all["res_mac_H_val"])
+        df_mac_H_test = flatten_results(names_all["res_mac_H_test"])
+        
+                # Add H/L labels
+        df_mac_H_val['H_L'] = 'H'
+        df_mac_H_test['H_L'] = 'H'
+
+        dfs = [ df_mac_H_val, df_mac_H_test]
+
+
 
     # Add various metrics
     add_up_prediction_counts(dfs)
@@ -1236,12 +865,19 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
         }
     
     # Create ensemble configuration using the specified data type
+# Create ensemble configuration using the specified data type
     ensemble_config = []
     for group_name, data in all_pair_maps.items():
-        group_size = len(next(iter(data[data_type_ensemble].values()))["parameters"])  # Get group size from first item
-        # group_size = len([ v for v in iter(data[data_type_ensemble].keys()) ][0])  # NOTE this is the same as the line above
-        ensemble_config.append((group_name, data[data_type_ensemble], group_size))
-    
+        group = data.get(data_type_ensemble, {})          # safe: may be missing/empty
+        first = next(iter(group.values()), None)          # safe: returns None if empty
+
+        if not first or "parameters" not in first:
+            print(f"[skip] {group_name}: no items or missing 'parameters' for '{data_type_ensemble}'")
+            continue
+
+        group_size = len(first["parameters"])
+        ensemble_config.append((group_name, group, group_size))
+
     # Process the data
     ensemble_results = process_ensemble_groups(
         ensemble_config=ensemble_config,
@@ -1255,66 +891,12 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
     total_correct_ups = 0
     # sum_actuals_ups = 0
     sum_actuals_ups_list_ALL = []
-    HOD_sum_actuals_ups_list_ALL = []
-    UCO_sum_actuals_ups_list_ALL = []
-    HUC_sum_actuals_ups_list_ALL = []
-    CRUD_sum_actuals_ups_list_ALL = []
-    USO_sum_actuals_ups_list_ALL = []
+
 
     group_results = {}
     detailed_results = {}
 
 
-
-    import pickle
-    with open('ETF_dfs_WTI_preds_analysis/df_HUC_T_folds_values', 'rb') as f:
-        df_HUC_T_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_UCO_T_folds_values', 'rb') as f:
-        df_UCO_T_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_HOD_T_folds_values', 'rb') as f:
-        df_HOD_T_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_CRUD_T_folds_values', 'rb') as f:
-        df_CRUD_T_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_USO_T_folds_values', 'rb') as f:
-        df_USO_T_folds_values = pickle.load(f)
-
-
-
-    with open('ETF_dfs_WTI_preds_analysis/df_HUC_V_folds_values', 'rb') as f:
-        df_HUC_V_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_UCO_V_folds_values', 'rb') as f:
-        df_UCO_V_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_HOD_V_folds_values', 'rb') as f:
-        df_HOD_V_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_CRUD_V_folds_values', 'rb') as f:
-        df_CRUD_V_folds_values = pickle.load(f)
-
-    with open('ETF_dfs_WTI_preds_analysis/df_USO_V_folds_values', 'rb') as f:
-        df_USO_V_folds_values = pickle.load(f)
-
-
-
-
-    if data_type_ensemble == "T":
-        flatten_HOD_values = [p for part in df_HOD_T_folds_values for p in part]
-        flatten_HUC_values = [p for part in df_HUC_T_folds_values for p in part]
-        flatten_UCO_values = [p for part in df_UCO_T_folds_values for p in part]
-        flatten_CRUD_values = [p for part in df_CRUD_T_folds_values for p in part]
-        flatten_USO_values = [p for part in df_USO_T_folds_values for p in part]
-
-    if data_type_ensemble == "V":
-        flatten_HOD_values = [p for part in df_HOD_V_folds_values for p in part]
-        flatten_HUC_values = [p for part in df_HUC_V_folds_values for p in part]
-        flatten_UCO_values = [p for part in df_UCO_V_folds_values for p in part]
-        flatten_CRUD_values = [p for part in df_CRUD_V_folds_values for p in part]
-        flatten_USO_values = [p for part in df_USO_V_folds_values for p in part]
 
     # Process each group
     for ensemble_group_name, ensemble_group in ensemble_results.items():
@@ -1335,29 +917,17 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
             total_ups += p_ups
 
             up_vals_predicted_raw_val = []
-            HOD_up_vals_predicted_raw_val = []
-            UCO_up_vals_predicted_raw_val = []
-            HUC_up_vals_predicted_raw_val = []
-            CRUD_up_vals_predicted_raw_val = []
-            USO_up_vals_predicted_raw_val = []
+
             correct_ups = 0
 
-            for p, a, actual_binary, HOD_val, UCO_val, HUC_val, CRUD_val, USO_val in zip(flatten_preds, flatten_raw_actuals, flatten_actuals, flatten_HOD_values, flatten_UCO_values, flatten_HUC_values, flatten_CRUD_values, flatten_USO_values):
+            for p, a, actual_binary in zip(flatten_preds, flatten_raw_actuals, flatten_actuals):
                 if not isinstance(p, str) and p > 0.5:
                     up_vals_predicted_raw_val.append(a)
-                    HOD_up_vals_predicted_raw_val.append(HOD_val)
-                    UCO_up_vals_predicted_raw_val.append(UCO_val)
-                    HUC_up_vals_predicted_raw_val.append(HUC_val)
-                    CRUD_up_vals_predicted_raw_val.append(CRUD_val)
-                    USO_up_vals_predicted_raw_val.append(USO_val)
+
 
                     group_sum_actuals += a
                     sum_actuals_ups_list_ALL.append(a)
-                    HOD_sum_actuals_ups_list_ALL.append(HOD_val)
-                    UCO_sum_actuals_ups_list_ALL.append(UCO_val)
-                    HUC_sum_actuals_ups_list_ALL.append(HUC_val)
-                    CRUD_sum_actuals_ups_list_ALL.append(CRUD_val)
-                    USO_sum_actuals_ups_list_ALL.append(USO_val)
+
                     # sum_actuals_ups += a
                     # Check if up prediction was correct (actual_bin > 0.5)
                     if actual_binary > 0.5:
@@ -1370,8 +940,7 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
             output_line = (
                 f"{ensemble_result['cv_sets']['overall_metrics']['precision_up']} - "
                 f"{ensemble_result['cv_sets']['overall_metrics']['recall_up']} "
-                f"{ensemble_result['combo_numbers']} - {p_ups} - Correct: {correct_ups} - {up_vals_predicted_raw_val} - HOD vals: {HOD_up_vals_predicted_raw_val} \
-                    - UCO vals: {UCO_up_vals_predicted_raw_val} - HUC vals: {HUC_up_vals_predicted_raw_val} - CRUD vals: {CRUD_up_vals_predicted_raw_val} - USO vals: {USO_up_vals_predicted_raw_val}"
+                f"{ensemble_result['combo_numbers']} - {p_ups} - Correct: {correct_ups} - {up_vals_predicted_raw_val} "
             )
             group_output.append(output_line)
             
@@ -1383,11 +952,7 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
                 "up_predictions": p_ups,
                 "correct_ups": correct_ups,
                 "actual_returns": up_vals_predicted_raw_val,
-                "HOD_values_returns": HOD_up_vals_predicted_raw_val,
-                "UCO_values_returns": UCO_up_vals_predicted_raw_val,
-                "HUC_values_returns": HUC_up_vals_predicted_raw_val,
-                "CRUD_values_returns": CRUD_up_vals_predicted_raw_val,
-                "USO_values_returns": USO_up_vals_predicted_raw_val
+
             })
         
         group_results[ensemble_group_name] = group_output
@@ -1401,32 +966,23 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
             f"Prec Up: {group_correct_ups/group_ups if group_ups > 0 else 0:.3f}"
         ]
 
-    ## set outlier values past < -0.5 to -0.06
-    if filter_outliers:
-        for i in range(len(sum_actuals_ups_list_ALL)):
-            if sum_actuals_ups_list_ALL[i] < -0.5:
-                sum_actuals_ups_list_ALL[i] = -0.1
+    # ## set outlier values past < -0.5 to -0.06
+    # if filter_outliers:
+    #     for i in range(len(sum_actuals_ups_list_ALL)):
+    #         if sum_actuals_ups_list_ALL[i] < -0.5:
+    #             sum_actuals_ups_list_ALL[i] = -0.1
 
     total_ups = len(set(sum_actuals_ups_list_ALL))
     total_correct_ups = len(set([val for val in sum_actuals_ups_list_ALL if val > 0]))  
 
     sum_actuals_ups = sum(set(sum_actuals_ups_list_ALL))
-    HOD_sum_actuals_ups = sum(set(HOD_sum_actuals_ups_list_ALL))
-    UCO_sum_actuals_ups = sum(set(UCO_sum_actuals_ups_list_ALL))
-    HUC_sum_actuals_ups = sum(set(HUC_sum_actuals_ups_list_ALL))
-    CRUD_sum_actuals_ups = sum(set(CRUD_sum_actuals_ups_list_ALL))
-    USO_sum_actuals_ups = sum(set(USO_sum_actuals_ups_list_ALL))
+
 
     # Create overall summary
     summary = {
         "Total Up Predictions": total_ups,
         "Total Correct Up Predictions": total_correct_ups,
         "Sum of Actual Returns for Up Predictions": sum_actuals_ups,
-        "Sum of HOD Actual Returns for Up Predictions": HOD_sum_actuals_ups,
-        "Sum of UCO Actual Returns for Up Predictions": UCO_sum_actuals_ups,
-        "Sum of HUC Actual Returns for Up Predictions": HUC_sum_actuals_ups,
-        "Sum of CRUD Actual Returns for Up Predictions": CRUD_sum_actuals_ups,
-        "Sum of USO Actual Returns for Up Predictions": USO_sum_actuals_ups,
         "Prec Up": total_correct_ups/total_ups if total_ups > 0 else 0
     }
 
@@ -1439,11 +995,7 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
             "total_ups": total_ups,
             "total_correct_ups": total_correct_ups,
             "sum_actuals_ups": sum_actuals_ups,
-            "HOD_sum_actuals_ups": HOD_sum_actuals_ups,
-            "UCO_sum_actuals_ups": UCO_sum_actuals_ups,
-            "HUC_sum_actuals_ups": HUC_sum_actuals_ups,
-            "CRUD_sum_actuals_ups": CRUD_sum_actuals_ups,
-            "USO_sum_actuals_ups": USO_sum_actuals_ups,
+
             "precision": total_correct_ups / total_ups if total_ups > 0 else 0
         },
         "config_info": {

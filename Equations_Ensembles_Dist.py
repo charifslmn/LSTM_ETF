@@ -18,7 +18,7 @@ from IPython.display import Image, display ; import base64
 
 from Equations_Run_Combo_V_2 import (
 
-    run_combo,LSTM,
+    run_combo_V_4,LSTM,
     TimeSeriesDataset,format_to_tensor, train_one_epoch,
     validate_one_epoch, evaluate_binary_0_1, evaluate_signed_neg1_1 ,
 )
@@ -141,7 +141,7 @@ def distribution_discovery(combo: dict, combo_index: int, number_of_seeds: int):
     print(f"****************** STARTED RUN FOR COMBO INDEX {combo_index}")
 
     # choose seeds
-    seeds = random.sample(range(10000), number_of_seeds)
+    seeds = random.sample(range(50000), number_of_seeds)
     if 42 not in seeds:
         seeds.append(42)
 
@@ -152,94 +152,22 @@ def distribution_discovery(combo: dict, combo_index: int, number_of_seeds: int):
         combo_seeded['is_deterministic'] = True  # ensure deterministic path uses the provided seed
 
         # run
-        result_entry, w = run_combo(0, combo_seeded, total_offset=0, use_print_acc_vs_pred=False)
-
-        # extract metrics
-        try:
-            overall_metrics = result_entry['cv_sets']['overall_metrics']
-            acc = overall_metrics.get('accuracy', np.nan)
-            prec_up = overall_metrics.get('precision_up', np.nan)
-            recall_up = overall_metrics.get('recall_up', np.nan)
-        except Exception:
-            acc, prec_up, recall_up = np.nan, np.nan, np.nan
+        result_entry, w = run_combo_V_4(0, combo_seeded, total_offset=0, use_print_acc_vs_pred=False , pred_threshold_sigmoid01_up_bool=False)
 
         return {
             'seed': seed_val,
-            'accuracy': float(acc) if acc is not None else np.nan,
-            'precision_up': float(prec_up) if prec_up is not None else np.nan,
-            'recall_up': float(recall_up) if recall_up is not None else np.nan
+            'result_entry': result_entry,
         }
 
     # parallel runs
-    with parallel_backend("loky"):
-        per_seed = Parallel(n_jobs=-1)(delayed(run_for_seed)(s) for s in seeds)
-
-    # Prepare data for plotting
-    metrics = {
-        'accuracy': {'values': [], 'name': 'Accuracy', 'range': (0, 100)},
-        'precision_up': {'values': [], 'name': 'Precision (Up)', 'range': (0, 100)},
-        'recall_up': {'values': [], 'name': 'Recall (Up)', 'range': (0, 100)}
-    }
-    
-    # Count None values and collect valid numbers
-    none_counts = {'precision_up': 0, 'recall_up': 0}
-    for r in per_seed:
-        metrics['accuracy']['values'].append(r['accuracy'])
-        
-        if np.isnan(r['precision_up']):
-            none_counts['precision_up'] += 1
-        else:
-            metrics['precision_up']['values'].append(r['precision_up'])
-            
-        if np.isnan(r['recall_up']):
-            none_counts['recall_up'] += 1
-        else:
-            metrics['recall_up']['values'].append(r['recall_up'])
-
-    # Calculate stats for each metric
-    plots_base64 = {}
-    for metric_name, metric_data in metrics.items():
-        values = np.array(metric_data['values'], dtype=np.float64)
-        valid_values = values[~np.isnan(values)]
-        
-        if len(valid_values) > 0:
-            mean_val = float(np.mean(valid_values))
-            std_val = float(np.std(valid_values))
-        else:
-            mean_val, std_val = float('nan'), float('nan')
-        
-        # Create plot
-        fig = plt.figure(figsize=(7, 4))
-        if len(valid_values) > 0:
-            plt.hist(valid_values, bins=30, range=metric_data['range'], 
-                    edgecolor='black', alpha=0.75)
-        
-        # Add title and annotations
-        title = f"Combo #{combo_index} — {metric_data['name']}\nmean={mean_val:.2f}, std={std_val:.2f}"
-        
-        # Add None counts for precision and recall
-        if metric_name in ['precision_up', 'recall_up']:
-            title += f"\nNone values: {none_counts[metric_name]}/{number_of_seeds}"
-        
-        plt.title(title)
-        plt.xlabel(f"{metric_data['name']} (%)")
-        plt.ylabel("Frequency")
-        plt.grid(axis='y', linestyle='--', alpha=0.4)
-        plt.tight_layout()
-
-        # Save to base64
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png')
-        buf.seek(0)
-        plots_base64[metric_name] = base64.b64encode(buf.read()).decode('utf-8')
-        plt.close(fig)
+    with parallel_backend("loky", n_jobs=7):
+        per_seed = Parallel()(delayed(run_for_seed)(s) for s in seeds)
 
     return {
         'combo_index': combo_index,
         'combo': combo,
-        'per_seed': per_seed,
-        'none_counts': none_counts,
-        'plots_base64': plots_base64,
+        'per_seed_all_results': per_seed,
+
     }
 
 
