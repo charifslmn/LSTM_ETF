@@ -255,8 +255,138 @@ def process_parameters_and_merge(dfs: List[pd.DataFrame]) -> pd.DataFrame:
 
 
 
+############## NEW NEW NEW NEW 
+
+def get_model_groups_in_corr_range_diff_params(master_df, machine, set_type, corr_range, group_size=2, 
+                                 use_spearman_bool=False, num_diff_params=None):
+    """
+    Find groups of models (size=group_size) whose pairwise correlations
+    of predictions fall within [low, high), with optional parameter difference filtering.
+
+    Args:
+        master_df (pd.DataFrame): your merged DF.
+        machine (str): 'mac' or 'gc'.
+        set_type (str): 'V' or 'T'.
+        corr_range (tuple): (low, high) inclusive/exclusive as [low, high).
+        group_size (int): number of models per group (>=2).
+        use_spearman_bool (bool): if True, use Spearman correlation; else use Pearson.
+        num_diff_params (int or None): Minimum number of different parameters required 
+                                     between models in the group. If None, no filtering.
+
+    Returns:
+        list[tuple]: list of tuples of model IDs (param_int_Vue_...) meeting the criteria.
+    """
+    assert group_size >= 2, "group_size must be >= 2"
+
+    preds_col = f"all_preds_{machine}_{set_type}"
+    id_col = f"param_int_Vue_{machine}_{set_type}"
+    params_col = f"parameters_{machine}_{set_type}"
+
+    # Keep only rows with predictions, ID, and parameters
+    block = master_df.loc[master_df[preds_col].notna() & 
+                         master_df[id_col].notna() & 
+                         master_df[params_col].notna(), 
+                         [id_col, preds_col, params_col]]
+
+    # Flatten predictions per model id and store parameters
+    preds_by_id = {}
+    params_by_id = {}
+    
+    for _, row in block.iterrows():
+        mid = int(row[id_col])
+        flat = [p for fold in row[preds_col] for p in fold]
+        preds_by_id[mid] = np.asarray(flat, dtype=float)
+        params_by_id[mid] = row[params_col]  # Store parameters
+
+    if not preds_by_id:
+        return []
+
+    model_ids = sorted(preds_by_id.keys())
+
+    # Build data matrix (n_models, n_samples)
+    data = np.vstack([preds_by_id[mid] for mid in model_ids])
+
+    # Correlation matrix
+    if use_spearman_bool:
+        from scipy.stats import spearmanr
+        corr = spearmanr(data, axis=1).correlation
+    else:
+        corr = np.corrcoef(data)
+
+    low, high = corr_range
+
+    groups = []
+    idx_map = {i: mid for i, mid in enumerate(model_ids)}
+
+    # Fast path for pairs
+    if group_size == 2:
+        for i in range(len(model_ids)):
+            for j in range(i+1, len(model_ids)):
+                c = corr[i, j]
+                if not np.isnan(c) and (low <= c < high):
+                    groups.append((idx_map[i], idx_map[j]))
+    else:
+        # For k >= 3: check all combinations are within range
+        for combo in combinations(range(len(model_ids)), group_size):
+            ok = True
+            for a, b in combinations(combo, 2):
+                c = corr[a, b]
+                if np.isnan(c) or not (low <= c < high):
+                    ok = False
+                    break
+            if ok:
+                groups.append(tuple(idx_map[i] for i in combo))
+
+    # Filter by parameter differences if requested
+    if num_diff_params is not None and groups:
+        filtered_groups = []
+        
+        for group in groups:
+            # Get parameters for all models in this group
+            group_params = [params_by_id[mid] for mid in group]
+            
+            # Check if all models have the same parameter structure
+            if not all(isinstance(params, dict) for params in group_params):
+                continue
+                
+            # Count different parameters across all pairs in the group
+            min_diff_params = float('inf')
+            
+            for i in range(len(group)):
+                for j in range(i + 1, len(group)):
+                    params1 = group_params[i]
+                    params2 = group_params[j]
+                    
+                    # Count different parameters between this pair
+                    diff_count = 0
+                    all_keys = set(params1.keys()) | set(params2.keys())
+                    
+                    for key in all_keys:
+                        val1 = params1.get(key)
+                        val2 = params2.get(key)
+                        
+                        # Consider parameters different if:
+                        # 1. One has the parameter and the other doesn't
+                        # 2. Both have the parameter but with different values
+                        if (key not in params1 or key not in params2) or (val1 != val2):
+                            diff_count += 1
+                    
+                    min_diff_params = min(min_diff_params, diff_count)
+            
+            # Keep group if minimum difference meets the threshold
+            if min_diff_params >= num_diff_params:
+                filtered_groups.append(group)
+        
+        return filtered_groups
+
+    return groups
 
 
+
+
+
+
+############## NEW NEW NEW NEW 
 
 
 
@@ -342,6 +472,191 @@ def get_model_groups_in_corr_range(master_df, machine, set_type, corr_range, gro
 
     return groups
 
+
+##### NEW NEW NEW 
+
+
+def get_model_groups_in_corr_range_diff_params_and_same_up_preds(master_df, machine, set_type, corr_range, group_size=2, 
+                                 use_spearman_bool=False, num_diff_params=None, 
+                                 min_same_up_preds=None, max_same_up_preds=None):
+    """
+    Find groups of models (size=group_size) whose pairwise correlations
+    of predictions fall within [low, high), with optional parameter difference filtering
+    and same "up" predictions filtering.
+
+    Args:
+        master_df (pd.DataFrame): your merged DF.
+        machine (str): 'mac' or 'gc'.
+        set_type (str): 'V' or 'T'.
+        corr_range (tuple): (low, high) inclusive/exclusive as [low, high).
+        group_size (int): number of models per group (>=2).
+        use_spearman_bool (bool): if True, use Spearman correlation; else use Pearson.
+        num_diff_params (int or None): Minimum number of different parameters required 
+                                     between models in the group. If None, no filtering.
+        min_same_up_preds (int or None): Minimum number of times both models predict "up" (>=0.5)
+                                        for the same entry. If None, no filtering.
+        max_same_up_preds (int or None): Maximum number of times both models predict "up" (>=0.5)
+                                        for the same entry. If None, no filtering.
+
+    Returns:
+        list[tuple]: list of tuples of model IDs (param_int_Vue_...) meeting the criteria.
+    """
+    assert group_size >= 2, "group_size must be >= 2"
+
+    preds_col = f"all_preds_{machine}_{set_type}"
+    id_col = f"param_int_Vue_{machine}_{set_type}"
+    params_col = f"parameters_{machine}_{set_type}"
+
+    # Keep only rows with predictions, ID, and parameters
+    block = master_df.loc[master_df[preds_col].notna() & 
+                         master_df[id_col].notna() & 
+                         master_df[params_col].notna(), 
+                         [id_col, preds_col, params_col]]
+
+    # Flatten predictions per model id and store parameters
+    preds_by_id = {}
+    params_by_id = {}
+    
+    for _, row in block.iterrows():
+        mid = int(row[id_col])
+        flat = [p for fold in row[preds_col] for p in fold]
+        preds_by_id[mid] = np.asarray(flat, dtype=float)
+        params_by_id[mid] = row[params_col]  # Store parameters
+
+    if not preds_by_id:
+        return []
+
+    model_ids = sorted(preds_by_id.keys())
+
+    # Build data matrix (n_models, n_samples)
+    data = np.vstack([preds_by_id[mid] for mid in model_ids])
+
+    # Correlation matrix
+    if use_spearman_bool:
+        from scipy.stats import spearmanr
+        corr = spearmanr(data, axis=1).correlation
+    else:
+        corr = np.corrcoef(data)
+
+    low, high = corr_range
+
+    groups = []
+    idx_map = {i: mid for i, mid in enumerate(model_ids)}
+
+    # Fast path for pairs
+    if group_size == 2:
+        for i in range(len(model_ids)):
+            for j in range(i+1, len(model_ids)):
+                c = corr[i, j]
+                if not np.isnan(c) and (low <= c < high):
+                    groups.append((idx_map[i], idx_map[j]))
+    else:
+        # For k >= 3: check all combinations are within range
+        for combo in combinations(range(len(model_ids)), group_size):
+            ok = True
+            for a, b in combinations(combo, 2):
+                c = corr[a, b]
+                if np.isnan(c) or not (low <= c < high):
+                    ok = False
+                    break
+            if ok:
+                groups.append(tuple(idx_map[i] for i in combo))
+
+    # Filter by parameter differences if requested
+    if num_diff_params is not None and groups:
+        filtered_groups = []
+        
+        for group in groups:
+            # Get parameters for all models in this group
+            group_params = [params_by_id[mid] for mid in group]
+            
+            # Check if all models have the same parameter structure
+            if not all(isinstance(params, dict) for params in group_params):
+                continue
+                
+            # Count different parameters across all pairs in the group
+            min_diff_params = float('inf')
+            
+            for i in range(len(group)):
+                for j in range(i + 1, len(group)):
+                    params1 = group_params[i]
+                    params2 = group_params[j]
+                    
+                    # Count different parameters between this pair
+                    diff_count = 0
+                    all_keys = set(params1.keys()) | set(params2.keys())
+                    
+                    for key in all_keys:
+                        val1 = params1.get(key)
+                        val2 = params2.get(key)
+                        
+                        # Consider parameters different if:
+                        # 1. One has the parameter and the other doesn't
+                        # 2. Both have the parameter but with different values
+                        if (key not in params1 or key not in params2) or (val1 != val2):
+                            diff_count += 1
+                    
+                    min_diff_params = min(min_diff_params, diff_count)
+            
+            # Keep group if minimum difference meets the threshold
+            if min_diff_params >= num_diff_params:
+                filtered_groups.append(group)
+        
+        groups = filtered_groups
+
+    # Filter by same "up" predictions if requested (both min and max)
+    if (min_same_up_preds is not None or max_same_up_preds is not None) and groups:
+        filtered_groups = []
+        
+        for group in groups:
+            # For groups of size 2, check the pair directly
+            if group_size == 2:
+                mid1, mid2 = group
+                preds1 = preds_by_id[mid1]
+                preds2 = preds_by_id[mid2]
+                
+                # Count number of times both predict "up" (>=0.5)
+                both_up_count = np.sum((preds1 >= 0.5) & (preds2 >= 0.5))
+                
+                # Check both min and max constraints
+                min_ok = (min_same_up_preds is None) or (both_up_count >= min_same_up_preds)
+                max_ok = (max_same_up_preds is None) or (both_up_count <= max_same_up_preds)
+                
+                if min_ok and max_ok:
+                    filtered_groups.append(group)
+            
+            # For groups larger than 2, check all pairs
+            else:
+                keep_group = True
+                for i in range(len(group)):
+                    for j in range(i + 1, len(group)):
+                        mid1, mid2 = group[i], group[j]
+                        preds1 = preds_by_id[mid1]
+                        preds2 = preds_by_id[mid2]
+                        
+                        # Count number of times both predict "up" (>=0.5)
+                        both_up_count = np.sum((preds1 >= 0.5) & (preds2 >= 0.5))
+                        
+                        # Check both min and max constraints for this pair
+                        min_ok = (min_same_up_preds is None) or (both_up_count >= min_same_up_preds)
+                        max_ok = (max_same_up_preds is None) or (both_up_count <= max_same_up_preds)
+                        
+                        if not (min_ok and max_ok):
+                            keep_group = False
+                            break
+                    
+                    if not keep_group:
+                        break
+                
+                if keep_group:
+                    filtered_groups.append(group)
+        
+        groups = filtered_groups
+
+    return groups
+
+##. NEW NEW NEW 
+
 def create_pair_params_map(random_groups: list, master_df: pd.DataFrame, num_models: int, data_type: str = "V") -> dict:
     """
     Create parameter maps for model groups
@@ -378,6 +693,8 @@ def create_pair_params_map(random_groups: list, master_df: pd.DataFrame, num_mod
         }
     
     return pair_params_map
+
+
 
 
 def selective_ensemble_all_agree_thresh(existing_data: list, combo_list, num_cv_sets, total_offset, INDEX, combo_numbers, 
@@ -719,7 +1036,7 @@ def process_func_PLUS_return_analytics(master_df: pd.DataFrame,
     print("before set:", sum_actuals_ups_list_ALL)
     print("after set:", set(sum_actuals_ups_list_ALL))
     total_ups = len(set(sum_actuals_ups_list_ALL))
-    total_correct_ups = len(set([val for val in sum_actuals_ups_list_ALL if val > 0]))  
+    total_correct_ups = len(set([val for val in sum_actuals_ups_list_ALL if val > 0.1]))  
 
     sum_actuals_ups = sum(set(sum_actuals_ups_list_ALL))
 
@@ -773,6 +1090,8 @@ import random
 # names_test = {'res_mac_L_test' : res_mac_L_test, 'res_mac_H_test' : res_mac_H_test}
 # names_val = {'res_mac_L_val' : res_mac_L_val, 'res_mac_H_val' : res_mac_H_val}
 
+
+
 def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataFrame, 
     
     
@@ -781,7 +1100,7 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
                                     names_all: dict,
 
                                     #new arams 
-                                    
+                                
                                     groups_config: list, 
                                     data_type_corr_groups_creation: str = "V",
                                     data_type_ensemble: str = "T",
@@ -789,7 +1108,15 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
                                     seed = None, 
                                     no_maps_per_group: int = 10 , 
                                     filter_outliers: bool = False,
-                                    use_spearman_corr: bool = False
+                                    use_spearman_corr: bool = False,
+
+                                    use_corr_with_diff_params: bool =True, 
+                                    min_diff_params : int = 0,
+                                    
+                                    use_corr_with_same_up_preds: bool = False,
+                                    min_same_up_preds: int = None,
+                                    max_same_up_preds: int = None,
+
                                     ) -> dict:
     
 
@@ -839,16 +1166,28 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
         random.seed(seed)
     
 
-
     # Create groups and random samples
     all_pair_maps = {}
+    groups_data_for_output = {} #### NEW NEW NEW
     
     for machine, corr_range, group_size in groups_config:
         # Create group name based on parameters
         group_name = f"pair_{group_size}_{corr_range[0]}_{corr_range[1]}".replace('.', '').replace('-', 'neg')
         
         # Get model groups
-        groups = get_model_groups_in_corr_range(master_df, machine, data_type_corr_groups_creation, corr_range, group_size=group_size, use_spearman_bool=use_spearman_corr)
+        if use_corr_with_diff_params:
+            groups = get_model_groups_in_corr_range_diff_params(master_df, machine, data_type_corr_groups_creation, corr_range, group_size=group_size, use_spearman_bool=use_spearman_corr, num_diff_params=min_diff_params)
+
+        elif use_corr_with_same_up_preds:
+            groups = get_model_groups_in_corr_range_diff_params_and_same_up_preds(master_df, machine, data_type_corr_groups_creation, corr_range, group_size=group_size, use_spearman_bool=use_spearman_corr , num_diff_params=None, min_same_up_preds=min_same_up_preds, max_same_up_preds=max_same_up_preds)
+        
+        else:
+            groups = get_model_groups_in_corr_range(master_df, machine, data_type_corr_groups_creation, corr_range, group_size=group_size, use_spearman_bool=use_spearman_corr , num_diff_params=None)
+
+
+        groups_data_for_output[group_name] = {}  #### NEW NEW NEW
+        groups_data_for_output[group_name]['all_groups'] = groups  #### NEW NEW NEW
+        groups_data_for_output[group_name]['num_groups'] = len(groups)  #### NEW NEW
         
         # Randomly select from each group
         random_groups = random.sample(groups, min(no_maps_per_group, len(groups))) if groups else []
@@ -973,9 +1312,10 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
     #             sum_actuals_ups_list_ALL[i] = -0.1
 
     total_ups = len(set(sum_actuals_ups_list_ALL))
-    total_correct_ups = len(set([val for val in sum_actuals_ups_list_ALL if val > 0]))  
+    total_correct_ups = len(set([val for val in sum_actuals_ups_list_ALL if val > 0.1]))  
 
     sum_actuals_ups = sum(set(sum_actuals_ups_list_ALL))
+
 
 
     # Create overall summary
@@ -983,6 +1323,7 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
         "Total Up Predictions": total_ups,
         "Total Correct Up Predictions": total_correct_ups,
         "Sum of Actual Returns for Up Predictions": sum_actuals_ups,
+        "Unique Actual Returns for Up Predictions": set(sum_actuals_ups_list_ALL),
         "Prec Up": total_correct_ups/total_ups if total_ups > 0 else 0
     }
 
@@ -995,9 +1336,12 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
             "total_ups": total_ups,
             "total_correct_ups": total_correct_ups,
             "sum_actuals_ups": sum_actuals_ups,
+            "unique_actuals_ups_list": set(sum_actuals_ups_list_ALL),
 
             "precision": total_correct_ups / total_ups if total_ups > 0 else 0
         },
+
+
         "config_info": {
             "groups_config": groups_config,
             "data_type_corr_groups_creation": data_type_corr_groups_creation,
@@ -1005,5 +1349,9 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
             "use_threshold_data": use_threshold_data,
             "seed": seed,
             "no_maps_per_group": no_maps_per_group
-        }
+        },
+
+
+       "groups_data": groups_data_for_output 
+
     }

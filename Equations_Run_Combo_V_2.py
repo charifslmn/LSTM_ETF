@@ -209,6 +209,7 @@ class LSTM(nn.Module):
         out = self.fc(out[:, -1, :])
         return out
 
+
 def train_one_epoch(model, train_loader, optimizer, loss_function, train_losses):
     model.train()
     
@@ -546,7 +547,7 @@ def evaluate_signed_neg1_1(predicted_array, actual_array,do_print : bool ):
 
 
 
-def run_combo_V_4(INDEX, combo, total_offset , use_print_acc_vs_pred : bool , pred_threshold_sigmoid01_up_bool : bool):
+def run_combo_V_4(INDEX, combo, total_offset , use_print_acc_vs_pred : bool , pred_threshold_sigmoid01_up_bool : bool , store_model_weights : bool):
 
     def GRIDSEARCH_FUNCTION_WITH_CV_forTS(
 
@@ -832,6 +833,7 @@ def run_combo_V_4(INDEX, combo, total_offset , use_print_acc_vs_pred : bool , pr
 
                 pos_weight_value = (num_0/ num_1)   # This will upweight the positive class
                 pos_weight = torch.tensor([pos_weight_value], dtype=torch.float32).to(device)
+                # print('f', pos_weight , flush=True)
 
 
 
@@ -844,6 +846,7 @@ def run_combo_V_4(INDEX, combo, total_offset , use_print_acc_vs_pred : bool , pr
 
                 pos_weight_value = (num_0/ num_1)   # This will upweight the positive class
                 pos_weight = torch.tensor([pos_weight_value], dtype=torch.float32).to(device)
+                # print('v', pos_weight , flush=True)
 
 
             elif use_class_weighting and use_binary_0_1_retRate_custom_pos:
@@ -855,6 +858,7 @@ def run_combo_V_4(INDEX, combo, total_offset , use_print_acc_vs_pred : bool , pr
 
                 pos_weight_value = (num_0/ num_1)  * POS_weight_multiplier  # This will upweight the positive class
                 pos_weight = torch.tensor([pos_weight_value], dtype=torch.float32).to(device)
+                # print('a', pos_weight , flush=True) 
 
 
             elif use_class_weighting and use_binary_0_1_retRate_custom_neg:
@@ -866,11 +870,12 @@ def run_combo_V_4(INDEX, combo, total_offset , use_print_acc_vs_pred : bool , pr
 
                 pos_weight_value = (num_0 / num_1) * POS_weight_multiplier  #CHCH  # 
                 pos_weight = torch.tensor([pos_weight_value], dtype=torch.float32).to(device)
+                # print('b', pos_weight , flush=True) 
 
             else:
                 pos_weight = None
 
-            # print(pos_weight)
+            # print('c', pos_weight , flush=True)
 
 
 
@@ -891,11 +896,12 @@ def run_combo_V_4(INDEX, combo, total_offset , use_print_acc_vs_pred : bool , pr
 
 
             ##### TESTING: print model architecture                  ##### TESTING: print model architecture
+            if store_model_weights:
 
-            if set_idx == 0:
+                if set_idx == 0:
 
-                model_weight_dict[f"combo_number{total_offset + INDEX + 1}"]["initial"][f"set_{set_idx + 1}"] = copy.deepcopy(model.state_dict())   # NOTE NTOE NOTE MUST USE DDEPCOPY HERE OR ELS EHT DATA CHANGED 
-                        
+                    model_weight_dict[f"combo_number{total_offset + INDEX + 1}"]["initial"][f"set_{set_idx + 1}"] = copy.deepcopy(model.state_dict())   # NOTE NTOE NOTE MUST USE DDEPCOPY HERE OR ELS EHT DATA CHANGED 
+                            
             ##### TESTING: print model architecture                ##### TESTING: print model architecture
 
 
@@ -929,8 +935,10 @@ def run_combo_V_4(INDEX, combo, total_offset , use_print_acc_vs_pred : bool , pr
                     train_one_epoch_custom_loss_BCE_THRESH_AND_SEVERITY(model, train_loader, train_loader_RAW_Y_vals, optimizer, train_losses , balancing_Weight_factor = pos_weight_value ,use_LOW_weights = use_LOW_weights_for_BCE_custom_loss  )
 
             ##### TESTING: print model architecture            ##### TESTING: print model architecture
-            if set_idx == 0:
-                model_weight_dict[f"combo_number{total_offset + INDEX + 1}"]["final"][f"set_{set_idx + 1}"] = copy.deepcopy(model.state_dict())  # NOTE NTOE NOTE MUST USE DDEPCOPY HERE OR ELS EHT DATA CHA
+            if store_model_weights:
+                    
+                if set_idx == 0:
+                    model_weight_dict[f"combo_number{total_offset + INDEX + 1}"]["final"][f"set_{set_idx + 1}"] = copy.deepcopy(model.state_dict())  # NOTE NTOE NOTE MUST USE DDEPCOPY HERE OR ELS EHT DATA CHA
             ##### TESTING: print model architecture            ##### TESTING: print model architecture
 
 
@@ -1094,13 +1102,7 @@ def run_combo_V_4(INDEX, combo, total_offset , use_print_acc_vs_pred : bool , pr
         flush=True
     )
 
-
-    return result_entry ,model_weight_dict
-
-
-
-
-
-
-
-
+    if store_model_weights:
+        return result_entry ,model_weight_dict
+    else:
+        return result_entry

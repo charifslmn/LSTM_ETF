@@ -132,7 +132,7 @@ def evaluate_binary_0_1_selective_ensemble(predicted_array_flat, actual_array_fl
 
 
 
-def distribution_discovery(combo: dict, combo_index: int, number_of_seeds: int):
+def distribution_discovery(combo: dict, combo_index: int, number_of_seeds: int , store_model_weights : bool = False):
     """
     Run the same combo across many different seeds by overriding combo['seed_num'].
     Returns three plots (accuracy, precision_up, recall_up) with base64-encoded PNGs.
@@ -152,7 +152,7 @@ def distribution_discovery(combo: dict, combo_index: int, number_of_seeds: int):
         combo_seeded['is_deterministic'] = True  # ensure deterministic path uses the provided seed
 
         # run
-        result_entry, w = run_combo_V_4(0, combo_seeded, total_offset=0, use_print_acc_vs_pred=False , pred_threshold_sigmoid01_up_bool=False)
+        result_entry = run_combo_V_4(0, combo_seeded, total_offset=0, use_print_acc_vs_pred=False , pred_threshold_sigmoid01_up_bool=False , store_model_weights = store_model_weights)
 
         return {
             'seed': seed_val,
@@ -160,7 +160,7 @@ def distribution_discovery(combo: dict, combo_index: int, number_of_seeds: int):
         }
 
     # parallel runs
-    with parallel_backend("loky", n_jobs=7):
+    with parallel_backend("loky", n_jobs=35):
         per_seed = Parallel()(delayed(run_for_seed)(s) for s in seeds)
 
     return {
