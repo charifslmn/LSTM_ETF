@@ -26,7 +26,7 @@ def TP_FP_brackets_analysis(top_models ,brackets , mdoel_name : str ):
             for pred, actual in zip(pred_fold, actual_fold):
                 if pred > 0.5:
                     for L, H in brackets:
-                        if L < pred < H:
+                        if L <= pred <= H:
                             if actual > 0.5:
                                 bracket_counts[f"{L}-{H}"]['TP'] += 1
                             else:
@@ -65,7 +65,6 @@ def TP_FP_brackets_severity_analysis(top, brackets , name : str ):
         "Neg_low (-0.05) - 0": 0 ,
         "Neg_mid (-0.12) - (-0.05)" : 0 ,
         "Severe (<-0.12)" : 0 })
-
 
 
     for score, entry in top:
@@ -261,6 +260,7 @@ def recompute_metrics_ignoring_pos_fp(
 
         seed_outputs = []
         seed_precisions = []
+        seed_recall_ups = []
 
         for seed_info in model_stub["selected_seeds"]:
             seed_num = seed_info["seed_num"]
@@ -373,6 +373,9 @@ def recompute_metrics_ignoring_pos_fp(
             if not math.isnan(seed_precision):
                 seed_precisions.append(seed_precision)
 
+            if not math.isnan(seed_recall):
+                seed_recall_ups.append(seed_recall)
+
         # model-level aggregates
         fp_tp_ratios = {}
         for key, counts in model_bracket_counts.items():
@@ -394,10 +397,13 @@ def recompute_metrics_ignoring_pos_fp(
         mean_precision = float(sum(seed_precisions) / len(seed_precisions)) if seed_precisions else float("nan")
         zero_precision_count = sum(1 for s in seed_outputs if (not math.isnan(s["precision"]) and s["precision"] == 0))
 
+        mean_recall_up = float(sum(seed_recall_ups) / len(seed_recall_ups)) if seed_recall_ups else float("nan")
+
         recomputed_models.append({
             "combo_index": combo_idx,
             "parameters": model_stub["parameters"],  # keep original params
             "mean_precision": mean_precision,
+            "mean_recall_up": mean_recall_up,
             "valid_seeds_count": len(seed_outputs),
             "total_seeds": len(seed_outputs),
             "zero_precision_count": zero_precision_count,
@@ -486,7 +492,7 @@ def recompute_selected_models_on_Tset(results_dist_disc_Tset_same_seeds_organize
 
                     assigned = False
                     for (L, H) in brackets:
-                        if L <= pred < H:
+                        if L <= pred <= H:
                             assigned = True
                             key = f"{L}-{H}"
                             if true_positive:
@@ -542,8 +548,11 @@ def recompute_selected_models_on_Tset(results_dist_disc_Tset_same_seeds_organize
 
         # Mean precision across ALL seeds
         non_none_precs = [r["precision"] for r in seed_records_all if r["precision"] is not None]
-        mean_precision = float(np.mean(non_none_precs)) if non_none_precs else float("nan")
+        non_none_recall_ups = [r["recall"] for r in seed_records_all if r["recall"] is not None]
 
+        mean_precision = float(np.mean(non_none_precs)) if non_none_precs else float("nan")
+        mean_recall_up = float(np.mean(non_none_recall_ups)) if non_none_recall_ups else float("nan")
+        
         # Model-level fp/tp ratio by bracket
         fp_tp_ratios = {}
         for key, counts in bracket_counts.items():
@@ -566,6 +575,7 @@ def recompute_selected_models_on_Tset(results_dist_disc_Tset_same_seeds_organize
 
         return {
             "mean_precision": mean_precision,
+            "mean_recall_up": mean_recall_up,
             "zero_precision_count": zero_precision_count,
             "total_seeds": len(seed_records_all),
             "seed_records_all": seed_records_all,  # keep for seed picking below
@@ -621,6 +631,7 @@ def recompute_selected_models_on_Tset(results_dist_disc_Tset_same_seeds_organize
             "combo_index": combo_idx,
             "parameters": tset_model["combo"],  # should match
             "mean_precision": model_metrics["mean_precision"],
+            "mean_recall_up": model_metrics["mean_recall_up"],
             "valid_seeds_count": len(selected_seeds_Tset),               # SAME selected seeds (on Tset)
             "total_seeds": model_metrics["total_seeds"],                  # all seeds present on Tset
             "zero_precision_count": model_metrics["zero_precision_count"],
@@ -643,6 +654,9 @@ import random
 # Modified function to store TP and FP counts for each seed
 def select_models_by_criteria(results_data, 
                              mean_precision_range=(0, 100),
+                            
+                             mean_recall_up_range=(0, 100),
+
                              seed_precision_range=(0, 100),
                              seed_recall_range=(0, 100),
                              min_seeds_per_model=1,
@@ -781,7 +795,10 @@ def select_models_by_criteria(results_data,
             })
 
         non_none_precs = [r["precision"] for r in seed_records if r["precision"] is not None]
+        non_none_recall_ups = [r["recall"] for r in seed_records if r["recall"] is not None]
+
         mean_precision = float(np.mean(non_none_precs)) if non_none_precs else float("nan")
+        mean_recall_up = float(np.mean(non_none_recall_ups)) if non_none_recall_ups else float("nan")
 
         fp_tp_ratios = {}
         for key, counts in bracket_counts.items():
@@ -803,6 +820,7 @@ def select_models_by_criteria(results_data,
             "combo_index": combo_idx,
             "parameters": parameters,
             "mean_precision": mean_precision,
+            "mean_recall_up": mean_recall_up,
             "zero_precision_count": zero_precision_count,
             "total_seeds": len(seed_records),
             "seed_records": seed_records,
@@ -818,13 +836,18 @@ def select_models_by_criteria(results_data,
 
     filtered_models = []
     min_mean_prec, max_mean_prec = mean_precision_range
+    min_mean_rec, max_mean_rec = mean_recall_up_range
     min_seed_prec, max_seed_prec = seed_precision_range
     min_seed_rec, max_seed_rec = seed_recall_range
 
     for m in model_summaries:
-        # Check mean precision range
+
         mean_prec = m["mean_precision"] if not math.isnan(m["mean_precision"]) else -float("inf")
         if not (min_mean_prec <= mean_prec <= max_mean_prec):
+            continue
+
+        mean_rec = m["mean_recall_up"] if not math.isnan(m["mean_recall_up"]) else -float("inf")
+        if not (min_mean_rec <= mean_rec <= max_mean_rec):
             continue
 
         # Check zero precision count
@@ -840,7 +863,7 @@ def select_models_by_criteria(results_data,
         if max_ratio_difference is not None:    
             if m["ratio_difference"] is None:
                 continue
-            if max_ratio_difference is not None and m["ratio_difference"] > max_ratio_difference:
+            if m["ratio_difference"] > max_ratio_difference:
                 continue
 
         # NEW: Check severe FP ratio among all FPs
@@ -912,6 +935,7 @@ def select_models_by_criteria(results_data,
                 "combo_index": m["combo_index"],
                 "parameters": m["parameters"],
                 "mean_precision": m["mean_precision"],
+                "mean_recall_up": m["mean_recall_up"],
                 "valid_seeds_count": len(valid_seeds),
                 "valid_seeds": valid_seeds,
                 "total_seeds": m["total_seeds"],
@@ -938,6 +962,7 @@ def select_models_by_criteria(results_data,
             "combo_index": m["combo_index"],
             "parameters": m["parameters"],
             "mean_precision": m["mean_precision"],
+            "mean_recall_up": m["mean_recall_up"],
             "valid_seeds_count": m["valid_seeds_count"],
             "total_seeds": m["total_seeds"],
             "zero_precision_count": m["zero_precision_count"],
