@@ -1208,6 +1208,7 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
     ensemble_config = []
     for group_name, data in all_pair_maps.items():
         group = data.get(data_type_ensemble, {})          # safe: may be missing/empty
+
         first = next(iter(group.values()), None)          # safe: returns None if empty
 
         if not first or "parameters" not in first:
@@ -1215,6 +1216,8 @@ def process_func_PLUS_return_analytics_THRESH_var_included( #master_df: pd.DataF
             continue
 
         group_size = len(first["parameters"])
+        print(f"[use] {group_name}: {len(group)} ensembles of size {group_size} for '{data_type_ensemble}'")
+        
         ensemble_config.append((group_name, group, group_size))
 
     # Process the data
